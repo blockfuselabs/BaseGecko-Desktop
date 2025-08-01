@@ -188,6 +188,24 @@ class CoinsService {
     }
   }
 
+  // Get coin details by address
+  async getCoinByAddress(address: string): Promise<Coin | null> {
+    try {
+      const response = await apiClient.get<ApiResponse<ZoraToken>>(API_ENDPOINTS.COINS.BY_ADDRESS(address));
+      
+      const token = response.success !== undefined ? response.data : (response as any);
+      
+      if (token) {
+        return transformZoraTokenToCoin(token, 0);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error fetching coin ${address}:`, error);
+      throw error;
+    }
+  }
+
   // Get trending coins
   async getTrendingCoins(limit: number = 10): Promise<Coin[]> {
     try {

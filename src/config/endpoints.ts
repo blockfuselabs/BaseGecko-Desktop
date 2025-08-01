@@ -3,6 +3,7 @@ export const API_ENDPOINTS = {
   COINS: {
     NEW: '/coins/new',
     BY_ID: (id: string) => `/coins/${id}`,
+    BY_ADDRESS: (address: string) => `/coins/${address}`,
     TRENDING: '/coins/trending',
     TOP_GAINERS: '/coins/gainers',
     TOP_LOSERS: '/coins/losers',

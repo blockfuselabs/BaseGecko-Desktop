@@ -96,6 +96,7 @@ class WatchlistStorage {
   static async saveWatchlist(watchlist: WatchlistItem[]): Promise<void> {
     try {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(watchlist));
+      console.log("Stored...");
     } catch (error) {
       console.error('Failed to save watchlist:', error);
     }
@@ -577,7 +578,7 @@ export const CoinDetail: React.FC<CoinDetailProps> = ({
         setLoading(true);
         setError(null);
         
-        const fetchedCoin = await coinsService.getCoinById(coinId);
+        const fetchedCoin = await coinsService.getCoinByAddress(coinData.address);
         if (fetchedCoin) {
           setCoin(fetchedCoin);
         } else {
