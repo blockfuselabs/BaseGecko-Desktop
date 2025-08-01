@@ -16,13 +16,13 @@ export const CoinStats: React.FC<CoinStatsProps> = ({ coin }) => {
   ];
 
   return (
-    <div className="card">
-      <h3 className="text-lg font-semibold text-dark-text-primary mb-4">Statistics</h3>
+    <div>
+      <h3 className="text-lg font-semibold text-black mb-4">Statistics</h3>
       <div className="space-y-3 md:space-y-4">
         {stats.map((stat, index) => (
           <div key={index} className="flex justify-between items-center">
-            <span className="text-dark-text-muted text-sm md:text-base">{stat.label}</span>
-            <span className="text-dark-text-primary font-mono text-sm md:text-base">
+            <span className="text-gray-600 text-sm md:text-base">{stat.label}</span>
+            <span className="text-black font-mono text-sm md:text-base">
               {stat.value}
             </span>
           </div>

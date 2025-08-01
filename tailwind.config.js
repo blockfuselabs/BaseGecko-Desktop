@@ -8,13 +8,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        // CoinHawk Brand Colors
+        // CoinHawk Brand Colors - New Light Theme
         hawk: {
-          primary: '#1a1f36',      // Deep navy
-          secondary: '#2d3748',    // Dark gray
-          accent: '#fbbf24',       // Golden yellow
-          'accent-light': '#fcd34d',
-          'accent-dark': '#f59e0b',
+          primary: '#272757',      // Your requested blue
+          secondary: '#3a3a6b',    // Lighter blue
+          accent: '#272757',       // Same blue for accent
+          'accent-light': '#3a3a6b',
+          'accent-dark': '#1f1f45',
         },
         
         // Status Colors
@@ -40,7 +40,18 @@ export default {
           700: '#b45309',
         },
         
-        // Dark Theme Colors
+        // Light Theme Colors
+        light: {
+          bg: '#fefffe',           // Your requested background
+          surface: '#ffffff',      // Card backgrounds
+          'surface-light': '#f8f9fa', // Hover states
+          border: '#e2e8f0',       // Borders
+          'text-primary': '#000000',   // Black primary text
+          'text-secondary': '#374151', // Dark gray secondary text
+          'text-muted': '#6b7280',     // Medium gray muted text
+        },
+        
+        // Keep dark theme colors for potential dark mode toggle
         dark: {
           bg: '#0f172a',           // Main background
           surface: '#1e293b',      // Card backgrounds
@@ -82,11 +93,14 @@ export default {
       },
       
       boxShadow: {
-        'glow': '0 0 20px rgba(251, 191, 36, 0.3)',
+        'glow': '0 0 20px rgba(39, 39, 87, 0.15)',           // Updated for blue
+        'glow-blue': '0 0 20px rgba(39, 39, 87, 0.3)',       // Blue glow
         'glow-success': '0 0 20px rgba(16, 185, 129, 0.3)',
         'glow-danger': '0 0 20px rgba(239, 68, 68, 0.3)',
         'card': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
         'card-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        'light-card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+        'light-card-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       },
       
       animation: {
@@ -94,7 +108,8 @@ export default {
         'bounce-gentle': 'bounce 2s infinite',
         'fade-in': 'fadeIn 0.5s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
-        'glow': 'glow 2s ease-in-out infinite alternate',
+        'glow': 'glowBlue 2s ease-in-out infinite alternate',
+        'glow-blue': 'glowBlue 2s ease-in-out infinite alternate',
       },
       
       keyframes: {
@@ -106,19 +121,44 @@ export default {
           '0%': { transform: 'translateY(100%)' },
           '100%': { transform: 'translateY(0)' },
         },
+        glowBlue: {
+          '0%': { boxShadow: '0 0 5px rgba(39, 39, 87, 0.2)' },
+          '100%': { boxShadow: '0 0 20px rgba(39, 39, 87, 0.4)' },
+        },
+        // Keep original glow for backward compatibility
         glow: {
-          '0%': { boxShadow: '0 0 5px rgba(251, 191, 36, 0.2)' },
-          '100%': { boxShadow: '0 0 20px rgba(251, 191, 36, 0.4)' },
+          '0%': { boxShadow: '0 0 5px rgba(39, 39, 87, 0.2)' },
+          '100%': { boxShadow: '0 0 20px rgba(39, 39, 87, 0.4)' },
         },
       },
       
       backdropBlur: {
         xs: '2px',
       },
+      
+      // Additional utilities for the light theme
+      backgroundColor: {
+        'primary': '#fefffe',
+        'surface': '#ffffff',
+        'surface-light': '#f8f9fa',
+      },
+      
+      textColor: {
+        'primary': '#000000',
+        'secondary': '#374151',
+        'muted': '#6b7280',
+      },
+      
+      borderColor: {
+        'primary': '#e2e8f0',
+        'secondary': '#d1d5db',
+        'accent': '#272757',
+      },
     },
   },
   plugins: [
     // Add any additional Tailwind plugins here
   ],
-  darkMode: 'class', // Enable dark mode
+  // Changed to 'media' for system preference, or keep 'class' for manual toggle
+  darkMode: 'class', // Enable dark mode (keep for potential future dark mode)
 }

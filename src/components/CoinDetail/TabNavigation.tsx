@@ -15,7 +15,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabCh
   ];
 
   return (
-    <div className="border-b border-dark-border overflow-x-auto">
+    <div className="border-b border-[#272757] overflow-x-auto">
       <nav className="flex space-x-4 md:space-x-8 min-w-max px-1">
         {tabItems.map((tab) => (
           <button
@@ -23,8 +23,8 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabCh
             onClick={() => onTabChange(tab.id)}
             className={`pb-3 md:pb-4 border-b-2 transition-all duration-200 text-sm md:text-base whitespace-nowrap ${
               activeTab === tab.id
-                ? 'border-hawk-accent text-hawk-accent font-semibold'
-                : 'border-transparent text-dark-text-secondary hover:text-dark-text-primary hover:border-dark-border'
+                ? 'border-[#272757] text-[#272757] font-semibold'
+                : 'border-transparent text-gray-600 hover:text-black hover:border-[#272757]'
             }`}
           >
             {tab.label}

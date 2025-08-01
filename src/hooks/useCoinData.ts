@@ -30,15 +30,16 @@ export interface UseCoinsOptions {
   autoFetch?: boolean;
   initialParams?: CoinsQueryParams;
   refreshInterval?: number; 
+  persistData?: boolean; // New option to persist data across refreshes
 }
 
 export const useCoins = (options: UseCoinsOptions = {}): UseCoinsReturn => {
   const {
     autoFetch = true,
-    initialParams = { limit: 20, sortBy: 'marketCap' as const, sortOrder: 'desc' as const },
-    refreshInterval
+    initialParams = { limit: 50, sortBy: 'marketCap' as const, sortOrder: 'desc' as const }, // Increased default limit
+    refreshInterval = 0, // Default to 0 (no auto-refresh)
+    persistData = true // Default to persist data
   } = options;
-
 
   const [state, setState] = useState<UseCoinsState>({
     coins: [],
@@ -50,17 +51,15 @@ export const useCoins = (options: UseCoinsOptions = {}): UseCoinsReturn => {
 
   const [currentParams, setCurrentParams] = useState<CoinsQueryParams>(initialParams);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
- 
   const updateState = useCallback((updates: Partial<UseCoinsState>) => {
     setState(prev => ({ ...prev, ...updates }));
   }, []);
 
- 
   const clearError = useCallback(() => {
     updateState({ error: null });
   }, [updateState]);
-
 
   const handleError = useCallback((error: unknown) => {
     console.error('Coins API Error:', error);
@@ -88,18 +87,23 @@ export const useCoins = (options: UseCoinsOptions = {}): UseCoinsReturn => {
       
       const coins = await coinsService.getNewCoins(mergedParams);
       
-      updateState({ 
-        coins, 
-        loading: false,
-        hasMore: coins.length === (mergedParams.limit || 20)
-      });
-      
-      setCurrentPage(1);
+      // If this is a filter change or initial load, replace the coins
+      // Otherwise, this should be handled by loadMore
+      if (isInitialLoad || params.sortBy || params.filterBy || params.search) {
+        console.log(`📊 Loaded ${coins.length} coins, hasMore: ${coins.length === (mergedParams.limit || 50)}`);
+        updateState({ 
+          coins, 
+          loading: false,
+          hasMore: coins.length === (mergedParams.limit || 50) // Updated default from 20 to 50
+        });
+        setCurrentPage(1);
+        setIsInitialLoad(false);
+      }
       
     } catch (error) {
       handleError(error);
     }
-  }, [currentParams, updateState, handleError]);
+  }, [currentParams, updateState, handleError, isInitialLoad]);
 
   // Fetch trending coins
   const fetchTrendingCoins = useCallback(async (limit: number = 10) => {
@@ -173,18 +177,46 @@ export const useCoins = (options: UseCoinsOptions = {}): UseCoinsReturn => {
       updateState({ marketStats });
     } catch (error) {
       console.error('Error fetching market stats:', error);
+      // Don't show error for market stats failure
     }
   }, [updateState]);
 
-  // Refresh all data
+  // Refresh data (for feed-like updates, refresh current view without disrupting scroll)
   const refreshData = useCallback(async () => {
-    await Promise.all([
-      fetchCoins(currentParams),
-      fetchMarketStats()
-    ]);
-  }, [fetchCoins, fetchMarketStats, currentParams]);
+    if (persistData) {
+      // For feed-like behavior, we refresh the data but try to maintain scroll position
+      // by only updating market stats and adding new coins to the top if any
+      await fetchMarketStats();
+      
+      // Optionally refresh the current filter data silently
+      try {
+        console.log('🔄 Feed refresh: updating data in background');
+        const newCoins = await coinsService.getNewCoins({ ...currentParams, limit: 20 });
+        
+        // Check if we have any truly new coins (by comparing IDs)
+        const existingIds = state.coins.map(coin => coin.id);
+        const actuallyNewCoins = newCoins.filter(coin => !existingIds.includes(coin.id));
+        
+        if (actuallyNewCoins.length > 0) {
+          console.log(`📊 Found ${actuallyNewCoins.length} new coins, adding to top of feed`);
+          updateState({ 
+            coins: [...actuallyNewCoins, ...state.coins]
+          });
+        }
+      } catch (error) {
+        // Silent fail for background refresh
+        console.warn('Background refresh failed:', error);
+      }
+    } else {
+      // Full refresh if persist is disabled
+      await Promise.all([
+        fetchCoins(currentParams),
+        fetchMarketStats()
+      ]);
+    }
+  }, [fetchMarketStats, fetchCoins, currentParams, persistData, state.coins, updateState]);
 
-  // Load more coins
+  // Load more coins (infinite scroll)
   const loadMore = useCallback(async () => {
     if (!state.hasMore || state.loading) return;
     
@@ -195,15 +227,20 @@ export const useCoins = (options: UseCoinsOptions = {}): UseCoinsReturn => {
       const params = {
         ...currentParams,
         page: nextPage,
-        offset: (nextPage - 1) * (currentParams.limit || 20)
+        offset: (nextPage - 1) * (currentParams.limit || 50) // Updated default from 20 to 50
       };
+      
+      console.log('📄 Loading more coins, page:', nextPage, 'offset:', params.offset);
       
       const newCoins = await coinsService.getNewCoins(params);
       
+      console.log(`📊 Loaded ${newCoins.length} more coins (page ${nextPage})`);
+      
+      // Append new coins to existing list
       updateState({ 
         coins: [...state.coins, ...newCoins],
         loading: false,
-        hasMore: newCoins.length === (currentParams.limit || 20)
+        hasMore: newCoins.length === (currentParams.limit || 50) // Updated default from 20 to 50
       });
       
       setCurrentPage(nextPage);
@@ -216,26 +253,31 @@ export const useCoins = (options: UseCoinsOptions = {}): UseCoinsReturn => {
   // Auto-fetch on mount
   useEffect(() => {
     if (autoFetch) {
-      refreshData();
+      fetchCoins(initialParams);
+      fetchMarketStats();
     }
-  }, [autoFetch]); 
+  }, [autoFetch]); // Remove dependencies to prevent re-running
 
-  // Set up refresh interval
+  // Set up refresh interval (Twitter-like feed updates)
   useEffect(() => {
     if (refreshInterval && refreshInterval > 0) {
+      console.log(`⏱️ Setting up feed refresh every ${refreshInterval/1000} seconds`);
+      
       const interval = setInterval(() => {
         if (!state.loading) {
           refreshData();
         }
       }, refreshInterval);
 
-      return () => clearInterval(interval);
+      return () => {
+        console.log('🛑 Clearing feed refresh interval');
+        clearInterval(interval);
+      };
     }
   }, [refreshInterval, refreshData, state.loading]);
 
   return {
     ...state,
-    
     fetchCoins,
     fetchTrendingCoins,
     fetchTopGainers,
@@ -249,17 +291,20 @@ export const useCoins = (options: UseCoinsOptions = {}): UseCoinsReturn => {
   };
 };
 
+// Specialized hooks
 export const useTrendingCoins = (limit: number = 10) => {
   return useCoins({
     autoFetch: false, 
-    initialParams: { limit, sortBy: 'volume' as const, sortOrder: 'desc' as const }
+    initialParams: { limit, sortBy: 'volume' as const, sortOrder: 'desc' as const },
+    persistData: true
   });
 };
 
 export const useTopGainers = (limit: number = 10) => {
   return useCoins({
     autoFetch: false,
-    initialParams: { limit, filterBy: 'gainers', sortBy: 'change' as const, sortOrder: 'desc' as const }
+    initialParams: { limit, filterBy: 'gainers', sortBy: 'change' as const, sortOrder: 'desc' as const },
+    persistData: true
   });
 };
 
@@ -267,6 +312,7 @@ export const useNewCoins = (limit: number = 20) => {
   return useCoins({
     autoFetch: true,
     initialParams: { limit, sortBy: 'createdAt' as const, sortOrder: 'desc' as const },
-    refreshInterval: 30000 
+    refreshInterval: 0, 
+    persistData: true
   });
 };

@@ -28,9 +28,9 @@ export const PriceChart: React.FC<PriceChartProps> = ({
       {/* Chart Controls */}
       <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center space-x-4 text-sm">
-          <span className="text-dark-text-muted">Price</span>
-          <span className="text-dark-text-muted hidden sm:inline">Market Cap</span>
-          <span className="text-dark-text-muted hidden sm:inline">TradingView</span>
+          <span className="text-gray-600">Price</span>
+          <span className="text-gray-600 hidden sm:inline">Market Cap</span>
+          <span className="text-gray-600 hidden sm:inline">TradingView</span>
         </div>
         
         <div className="flex items-center space-x-1 md:space-x-2 overflow-x-auto">
@@ -38,10 +38,10 @@ export const PriceChart: React.FC<PriceChartProps> = ({
             <button
               key={period}
               onClick={() => onPeriodChange(period)}
-              className={`px-2 md:px-3 py-1 text-xs md:text-sm rounded transition-all flex-shrink-0 ${
+              className={`px-2 md:px-3 py-1 text-xs md:text-sm rounded transition-all flex-shrink-0 border ${
                 chartPeriod === period
-                  ? 'bg-hawk-accent text-hawk-primary'
-                  : 'text-dark-text-muted hover:text-dark-text-primary hover:bg-dark-surface-light'
+                  ? 'bg-[#272757] text-white border-[#272757]'
+                  : 'text-gray-600 hover:text-black hover:bg-gray-100 border-[#272757]'
               }`}
             >
               {period}
@@ -51,7 +51,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
       </div>
 
       {/* Chart Container */}
-      <div className="chart-container bg-dark-surface rounded-xl p-3 md:p-6 border border-dark-border">
+      <div className="bg-white rounded-xl p-3 md:p-6 border border-[#272757]">
         <div className="h-64 md:h-96 relative">
           {/* Mobile-optimized SVG Chart */}
           <svg className="w-full h-full" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet">
@@ -63,7 +63,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
             </defs>
             
             {/* Grid Lines */}
-            <g stroke="#475569" strokeWidth="0.5" opacity="0.3">
+            <g stroke="#272757" strokeWidth="0.5" opacity="0.3">
               {[0, 1, 2, 3, 4].map(i => (
                 <line key={`h-${i}`} x1="0" y1={i * 80 + 40} x2="800" y2={i * 80 + 40} />
               ))}
@@ -99,7 +99,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
             ))}
             
             {/* Y-axis Labels - hidden on small screens */}
-            <g fill="#94a3b8" fontSize="10" textAnchor="end" className="hidden sm:block">
+            <g fill="black" fontSize="10" textAnchor="end" className="hidden sm:block">
               <text x="35" y="45">$0.127</text>
               <text x="35" y="125">$0.125</text>
               <text x="35" y="205">$0.123</text>
@@ -108,7 +108,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
             </g>
             
             {/* X-axis Labels - simplified on mobile */}
-            <g fill="#94a3b8" fontSize="10" textAnchor="middle">
+            <g fill="black" fontSize="10" textAnchor="middle">
               <text x="67" y="385" className="hidden sm:block">18:00</text>
               <text x="200" y="385">21:00</text>
               <text x="333" y="385" className="hidden sm:block">00:00</text>
@@ -119,20 +119,20 @@ export const PriceChart: React.FC<PriceChartProps> = ({
             
             {/* Current Price Indicator */}
             <g>
-              <line x1="800" y1="200" x2="815" y2="200" stroke="#fbbf24" strokeWidth="2"/>
-              <text x="820" y="205" fill="#fbbf24" fontSize="10" fontWeight="bold" className="hidden sm:block">
+              <line x1="800" y1="200" x2="815" y2="200" stroke="#272757" strokeWidth="2"/>
+              <text x="820" y="205" fill="#272757" fontSize="10" fontWeight="bold" className="hidden sm:block">
                 ${formatPrice(coin.price)}
               </text>
             </g>
           </svg>
           
           {/* Chart Info Overlay */}
-          <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-dark-surface/80 backdrop-blur-sm rounded-lg p-2 md:p-3 border border-dark-border/50">
-            <div className="text-xs md:text-sm text-dark-text-muted">Current Price</div>
-            <div className="text-lg md:text-xl font-bold text-dark-text-primary font-mono">
+          <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-white/90 backdrop-blur-sm rounded-lg p-2 md:p-3 border border-[#272757]/50">
+            <div className="text-xs md:text-sm text-gray-600">Current Price</div>
+            <div className="text-lg md:text-xl font-bold text-black font-mono">
               ${formatPrice(coin.price)}
             </div>
-            <div className={`text-xs md:text-sm font-semibold ${coin.change24h >= 0 ? 'text-success' : 'text-danger'}`}>
+            <div className={`text-xs md:text-sm font-semibold ${coin.change24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {coin.change24h >= 0 ? '▲' : '▼'} {Math.abs(coin.change24h).toFixed(2)}% (24h)
             </div>
           </div>
