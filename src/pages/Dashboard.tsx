@@ -423,7 +423,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
                           </span>
                         </div>
                         <span className="text-sm text-gray-900 font-mono">
-                          {coin.id.slice(0, 4)}...{coin.id.slice(-4)}
+                          {coin.creatorAddress.slice(0, 4)}...{coin.creatorAddress.slice(-4)}
                         </span>
                       </div>
                     </td>

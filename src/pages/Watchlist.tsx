@@ -250,127 +250,49 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
         return;
       }
 
-      const validCoinIds = items.map(item => item.coinId);
-      console.log('Looking for coins with IDs:', validCoinIds);
-      
       try {
-        const allCoins = await coinsService.getNewCoins({ limit: 1000 });
-        console.log('Fetched', allCoins.length, 'coins from API');
-        console.log('First few coin IDs from API:', allCoins.slice(0, 5).map(c => c.id));
-        console.log('First few addresses from API:', allCoins.slice(0, 5).map(c => c.address));
         
-       
-        const extractAddressFromId = (id: string): string | null => {
+        const coinDetailsPromises = items.map(async (item) => {
           try {
-            if (id.includes('=') && id.length > 20) {
-              const decoded = atob(id);
-              const addressMatch = decoded.match(/0x[a-fA-F0-9]{40}/);
-              return addressMatch ? addressMatch[0].toLowerCase() : null;
-            }
-          } catch (error) {
             
-          }
-          return null;
-        };
-    
-        const watchlistedCoins = allCoins.filter(coin => {
-          const watchlistIdLower = validCoinIds.map(id => id.toLowerCase());
-          
-         
-          const matchById = validCoinIds.includes(coin.id);
-          
-       
-          const matchByAddress = coin.address && 
-            watchlistIdLower.includes(coin.address.toLowerCase());
-          
-          
-          const apiAddressFromId = extractAddressFromId(coin.id);
-          const matchByExtractedAddress = apiAddressFromId && 
-            watchlistIdLower.includes(apiAddressFromId);
-          
-        
-          const matchByBase64 = validCoinIds.some(watchlistId => {
-            try {
-              if (watchlistId.includes('=') && coin.id.includes('=')) {
-                return watchlistId === coin.id;
+            let address = item.coinId;
+            if (item.coinId.includes('=') && item.coinId.length > 20) {
+              try {
+                const decoded = atob(item.coinId);
+                const addressMatch = decoded.match(/0x[a-fA-F0-9]{40}/);
+                if (addressMatch) {
+                  address = addressMatch[0];
+                }
+              } catch (error) {
+                console.warn('Failed to decode base64 coinId:', item.coinId);
               }
-            } catch (e) {
             }
-            return false;
-          });
-          
-          const isMatch = matchById || matchByAddress || matchByExtractedAddress || matchByBase64;
-          
-          if (isMatch) {
-            console.log(`Found match for coin ${coin.name}:`, {
-              coinId: coin.id,
-              coinAddress: coin.address,
-              apiAddressFromId,
-              matchById,
-              matchByAddress,
-              matchByExtractedAddress,
-              matchByBase64
-            });
+
+            const coinDetails = await coinsService.getCoinByAddress(address);
+            if (!coinDetails) {
+              console.warn(`No details found for coin with address: ${address}`);
+              return null;
+            }
+            return coinDetails;
+          } catch (error) {
+            console.error(`Failed to fetch details for coin ${item.coinId}:`, error);
+            return null;
           }
-          
-          return isMatch;
         });
+
+        const results = await Promise.all(coinDetailsPromises);
+        const validCoins = results.filter((coin): coin is Coin => coin !== null);
+
+        console.log(`Successfully fetched details for ${validCoins.length} out of ${items.length} coins`);
         
-        console.log('Found', watchlistedCoins.length, 'matching coins');
-        console.log('Matching coin names:', watchlistedCoins.map(c => c.name));
-        
-        if (watchlistedCoins.length === 0) {
-          // Enhanced debug info
-          const debugInfo = {
-            watchlistIds: validCoinIds,
-            watchlistAddressesLower: validCoinIds.map(id => id.toLowerCase()),
-            apiSample: allCoins.slice(0, 5).map(c => ({
-              id: c.id,
-              address: c.address,
-              addressFromId: extractAddressFromId(c.id),
-              name: c.name
-            })),
-            totalApiCoins: allCoins.length,
-            searchedForAddress: validCoinIds[0],
-            foundInApi: allCoins.some(c => 
-              (c.address && c.address.toLowerCase() === validCoinIds[0]?.toLowerCase()) ||
-              extractAddressFromId(c.id) === validCoinIds[0]?.toLowerCase()
-            )
-          };
+        if (validCoins.length === 0) {
+          setError('Unable to fetch details for any of your watched coins. They might be delisted or temporarily unavailable.');
+        } else if (validCoins.length < items.length) {
           
-          console.log('🔍 Detailed debug info:', debugInfo);
-          
-          // Check if we need to fetch more coins
-          if (allCoins.length >= 1000) {
-            setError('Coin not found in first 1000 results. The token you added might be newer or have low trading volume. Try removing it from watchlist and re-adding it.');
-          } else {
-            setError(`No matching coins found. Your watchlist contains address: ${validCoinIds[0]}. This token might not be available in the current API results.`);
-          }
-        }
-        
-        setCoins(watchlistedCoins);
-        
-        // Clean up watchlist to only include coins that were found
-        if (watchlistedCoins.length < items.length && watchlistedCoins.length > 0) {
-          const foundIdentifiers = new Set();
-          
-          // Collect all identifiers that matched
-          watchlistedCoins.forEach(coin => {
-            foundIdentifiers.add(coin.id);
-            if (coin.address) {
-              foundIdentifiers.add(coin.address.toLowerCase());
-            }
-            const extractedAddr = extractAddressFromId(coin.id);
-            if (extractedAddr) {
-              foundIdentifiers.add(extractedAddr);
-            }
-          });
-          
+          const foundAddresses = new Set(validCoins.map(coin => coin.address.toLowerCase()));
           const cleanedItems = items.filter(item => {
-            const itemIdLower = item.coinId.toLowerCase();
-            return foundIdentifiers.has(item.coinId) || 
-                   foundIdentifiers.has(itemIdLower) ||
-                   foundIdentifiers.has(extractAddressFromId(item.coinId) || '');
+            const itemAddress = item.coinId.toLowerCase();
+            return foundAddresses.has(itemAddress);
           });
           
           if (cleanedItems.length !== items.length) {
@@ -379,6 +301,9 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
             setWatchlistItems(cleanedItems);
           }
         }
+
+        setCoins(validCoins);
+
       } catch (apiError) {
         console.error('Failed to fetch coins from API:', apiError);
         setError(`Failed to load coin data from API: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`);
