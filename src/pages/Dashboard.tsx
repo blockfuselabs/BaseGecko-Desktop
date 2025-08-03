@@ -41,7 +41,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
 
   // Local state
   const [sortBy, setSortBy] = useState('marketCap');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterBy, setFilterBy] = useState('all');
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -51,6 +51,51 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
   const tableEndRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
+  // Client-side sorting function
+  const sortCoins = (coinsToSort: Coin[], sortField: string, order: 'asc' | 'desc'): Coin[] => {
+    return [...coinsToSort].sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      switch (sortField) {
+        case 'name':
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case 'price':
+          aVal = a.price;
+          bVal = b.price;
+          break;
+        case 'change24h':
+          aVal = a.change24h;
+          bVal = b.change24h;
+          break;
+        case 'volume24h':
+          aVal = a.volume24h;
+          bVal = b.volume24h;
+          break;
+        case 'marketCap':
+          aVal = a.marketCap;
+          bVal = b.marketCap;
+          break;
+        case 'holders':
+          aVal = a.holders;
+          bVal = b.holders;
+          break;
+        case 'createdAt':
+          aVal = new Date(a.createdAt).getTime();
+          bVal = new Date(b.createdAt).getTime();
+          break;
+        default:
+          aVal = a.marketCap;
+          bVal = b.marketCap;
+      }
+      
+      if (aVal < bVal) return order === 'asc' ? -1 : 1;
+      if (aVal > bVal) return order === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
   // Update display coins when filter changes or base coins change
   useEffect(() => {
     let filtered = [...coins];
@@ -58,19 +103,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
     if (filterBy === 'trending' && trendingCoins.length > 0) {
       filtered = [...trendingCoins];
     } else if (filterBy === 'gainers') {
-      filtered = coins.filter(coin => coin.change24h > 0).sort((a, b) => b.change24h - a.change24h);
+      filtered = coins.filter(coin => coin.change24h > 0);
     } else if (filterBy === 'losers') {
-      filtered = coins.filter(coin => coin.change24h < 0).sort((a, b) => a.change24h - b.change24h);
+      filtered = coins.filter(coin => coin.change24h < 0);
     } else if (filterBy === 'new') {
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       filtered = coins.filter(coin => {
         const createdDate = new Date(coin.createdAt);
         return createdDate > weekAgo;
-      }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      });
     }
     
-    setDisplayCoins(filtered);
-  }, [coins, trendingCoins, filterBy]);
+    // Apply sorting to filtered coins
+    const sortedCoins = sortCoins(filtered, sortBy, sortOrder);
+    setDisplayCoins(sortedCoins);
+    
+    console.log(`🔄 Updated display coins: ${sortedCoins.length} coins, sorted by ${sortBy} ${sortOrder}`);
+  }, [coins, trendingCoins, filterBy, sortBy, sortOrder]);
 
   // Load trending data on mount and refresh periodically
   useEffect(() => {
@@ -146,18 +195,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
     }
   };
 
-  const handleSortChange = async (newSortBy: string) => {
-    const newOrder = sortBy === newSortBy ? (sortOrder === 'desc' ? 'asc' : 'desc') : 'desc';
+  // Fixed sort change handler - now does client-side sorting
+  const handleSortChange = (newSortBy: string) => {
+    console.log(`🔄 Sort change requested: ${newSortBy}`);
+    
+    let newOrder: 'asc' | 'desc';
+    
+    if (sortBy === newSortBy) {
+      // Toggle order if same field
+      newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+    } else {
+      // Default to desc for new field (except name and createdAt)
+      newOrder = (newSortBy === 'name') ? 'asc' : 'desc';
+    }
+    
+    console.log(`📊 Setting sort: ${newSortBy} ${newOrder}`);
+    
     setSortBy(newSortBy);
     setSortOrder(newOrder);
-    await fetchCoins({ 
-      sortBy: newSortBy as any, 
-      sortOrder: newOrder as any,
-      filterBy: filterBy === 'all' ? undefined : filterBy as any
-    });
+    
+    // The useEffect will handle the actual sorting
   };
 
   const handleFilterChange = async (newFilterBy: string) => {
+    console.log(`🔄 Filter change requested: ${newFilterBy}`);
     setFilterBy(newFilterBy);
     
     // Load specific data based on filter
@@ -170,8 +231,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
       if (coins.length < 50) {
         await fetchCoins({ 
           limit: 100,
-          sortBy: sortBy as any, 
-          sortOrder: sortOrder as any
+          sortBy: 'marketCap', 
+          sortOrder: 'desc'
         });
       }
     } else if (newFilterBy === 'all') {
@@ -179,8 +240,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
       if (coins.length === 0) {
         await fetchCoins({ 
           limit: 50,
-          sortBy: sortBy as any, 
-          sortOrder: sortOrder as any
+          sortBy: 'marketCap', 
+          sortOrder: 'desc'
         });
       }
     }
@@ -190,6 +251,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
   const totalVolume = marketStats?.totalVolume || coins.reduce((sum, coin) => sum + coin.volume24h, 0);
   const gainersCount = coins.filter(coin => coin.change24h > 0).length;
   const marketChange = marketStats?.change24h || (gainersCount / coins.length > 0.5 ? 4.1 : -2.3);
+
+  // Helper function to get sort icon
+  const getSortIcon = (field: string) => {
+    if (sortBy !== field) return null;
+    return sortOrder === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />;
+  };
 
   // Error display
   if (error && !coins.length) {
@@ -281,9 +348,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
         </div>
       )}
 
-  
-     
-
       {/* Market Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
@@ -320,43 +384,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
                   <th className="py-4 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center space-x-1 cursor-pointer" onClick={() => handleSortChange('name')}>
+                    <div 
+                      className="flex items-center space-x-1 cursor-pointer hover:text-gray-700 transition-colors" 
+                      onClick={() => handleSortChange('name')}
+                    >
                       <span>Token</span>
-                      {sortBy === 'name' && (
-                        sortOrder === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                      )}
+                      {getSortIcon('name')}
                     </div>
                   </th>
                   <th className="py-4 px-6 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center justify-end space-x-1 cursor-pointer" onClick={() => handleSortChange('price')}>
+                    <div 
+                      className="flex items-center justify-end space-x-1 cursor-pointer hover:text-gray-700 transition-colors" 
+                      onClick={() => handleSortChange('price')}
+                    >
                       <span>Price</span>
-                      {sortBy === 'price' && (
-                        sortOrder === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                      )}
+                      {getSortIcon('price')}
                     </div>
                   </th>
                   <th className="py-4 px-6 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center justify-end space-x-1 cursor-pointer" onClick={() => handleSortChange('createdAt')}>
+                    <div 
+                      className="flex items-center justify-end space-x-1 cursor-pointer hover:text-gray-700 transition-colors" 
+                      onClick={() => handleSortChange('createdAt')}
+                    >
                       <span>Age</span>
-                      {sortBy === 'createdAt' && (
-                        sortOrder === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                      )}
+                      {getSortIcon('createdAt')}
                     </div>
                   </th>
                   <th className="py-4 px-6 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center justify-end space-x-1 cursor-pointer" onClick={() => handleSortChange('volume24h')}>
+                    <div 
+                      className="flex items-center justify-end space-x-1 cursor-pointer hover:text-gray-700 transition-colors" 
+                      onClick={() => handleSortChange('volume24h')}
+                    >
                       <span>Volume</span>
-                      {sortBy === 'volume24h' && (
-                        sortOrder === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                      )}
+                      {getSortIcon('volume24h')}
                     </div>
                   </th>
                   <th className="py-4 px-6 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center justify-end space-x-1 cursor-pointer" onClick={() => handleSortChange('marketCap')}>
+                    <div 
+                      className="flex items-center justify-end space-x-1 cursor-pointer hover:text-gray-700 transition-colors" 
+                      onClick={() => handleSortChange('marketCap')}
+                    >
                       <span>Market Cap</span>
-                      {sortBy === 'marketCap' && (
-                        sortOrder === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                      )}
+                      {getSortIcon('marketCap')}
                     </div>
                   </th>
                   <th className="py-4 px-6 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -423,7 +492,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewCoinDetail }) => {
                           </span>
                         </div>
                         <span className="text-sm text-gray-900 font-mono">
-                          {coin.creatorAddress.slice(0, 4)}...{coin.creatorAddress.slice(-4)}
+                          {coin.creatorAddress?.slice(0, 4)}...{coin.creatorAddress?.slice(-4)}
                         </span>
                       </div>
                     </td>

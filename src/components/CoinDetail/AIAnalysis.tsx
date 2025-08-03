@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bot, RefreshCw, AlertCircle, MessageSquare, Send, Loader2 } from 'lucide-react';
 import { coinsService } from '../../services/coinService';
 import { ApiError } from '../../config/client';
+import { ChatMessage } from '../../config/endpoints';
 
 interface AIAnalysisProps {
   coinName: string;
@@ -17,10 +18,10 @@ interface AIAnalysisProps {
   };
 }
 
-interface ChatMessage {
+interface LocalChatMessage {
   id: string;
+  role: 'user' | 'assistant';
   content: string;
-  isUser: boolean;
   timestamp: Date;
 }
 
@@ -29,11 +30,30 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ coinName, coinAddress, c
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [useRealAI, setUseRealAI] = useState(true);
+  const [chatAvailable, setChatAvailable] = useState(true); // Separate state for chat availability
   const [showChat, setShowChat] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<LocalChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  // Simple markdown renderer for AI responses
+  const renderMarkdown = (text: string): JSX.Element => {
+    // Split text by **bold** patterns and render accordingly
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    
+    return (
+      <>
+        {parts.map((part, index) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            // Remove ** and make bold
+            const boldText = part.slice(2, -2);
+            return <strong key={index} className="font-semibold text-gray-900">{boldText}</strong>;
+          }
+          return <span key={index}>{part}</span>;
+        })}
+      </>
+    );
+  };
 
   const generateFallbackAnalysis = (): string => {
     if (!coin) {
@@ -105,12 +125,14 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ coinName, coinAddress, c
       setUseRealAI(true);
       
       // Add initial AI message to chat
-      setChatMessages([{
+      const initialMessage: LocalChatMessage = {
         id: Date.now().toString(),
+        role: 'assistant',
         content: `I've analyzed ${coinName}. Here's my assessment: ${summary}`,
-        isUser: false,
         timestamp: new Date()
-      }]);
+      };
+      
+      setChatMessages([initialMessage]);
       
       console.log('AI summary loaded successfully');
     } catch (error) {
@@ -123,6 +145,8 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ coinName, coinAddress, c
       setError(errorMessage);
       setAnalysis(generateFallbackAnalysis());
       setUseRealAI(false);
+      // Don't disable chat just because summary failed - chat might still work
+      setChatAvailable(!!coinAddress);
     } finally {
       setLoading(false);
     }
@@ -140,13 +164,21 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ coinName, coinAddress, c
     }
   };
 
-  const handleSendMessage = async (): Promise<void> => {
-    if (!userInput.trim() || isSending) return;
+  const convertToApiFormat = (messages: LocalChatMessage[]): ChatMessage[] => {
+    return messages.map(msg => ({
+      role: msg.role,
+      content: msg.content,
+      timestamp: msg.timestamp.toISOString()
+    }));
+  };
 
-    const newUserMessage: ChatMessage = {
+  const handleSendMessage = async (): Promise<void> => {
+    if (!userInput.trim() || isSending || !coinAddress) return;
+
+    const newUserMessage: LocalChatMessage = {
       id: Date.now().toString(),
+      role: 'user',
       content: userInput,
-      isUser: true,
       timestamp: new Date()
     };
 
@@ -155,49 +187,40 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ coinName, coinAddress, c
     setIsSending(true);
 
     try {
-      // Simulate AI response (replace with actual API call)
-      const aiResponse = await simulateAIResponse(userInput);
+      // Convert chat history to API format
+      const conversationHistory = convertToApiFormat([...chatMessages, newUserMessage]);
       
-      const newAiMessage: ChatMessage = {
-        id: Date.now().toString(),
+      // Call the real AI chat API
+      const aiResponse = await coinsService.chatWithAI(
+        coinAddress,
+        userInput, // This will now be sent as 'userQuestion' to match your API
+        conversationHistory
+      );
+      
+      const newAiMessage: LocalChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
         content: aiResponse,
-        isUser: false,
         timestamp: new Date()
       };
 
       setChatMessages(prev => [...prev, newAiMessage]);
     } catch (err) {
       console.error('Error getting AI response:', err);
+      
+      const errorMessage = err instanceof ApiError ? err.message : 
+                          err instanceof Error ? err.message : 
+                          'Sorry, I encountered an error. Please try again later.';
+      
       setChatMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        content: "Sorry, I encountered an error. Please try again later.",
-        isUser: false,
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: errorMessage,
         timestamp: new Date()
       }]);
     } finally {
       setIsSending(false);
     }
-  };
-
-  const simulateAIResponse = async (query: string): Promise<string> => {
-    // This is a mock function - replace with actual API call to your AI service
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const responses = [
-          `Based on my analysis of ${coinName}, ${query.toLowerCase().includes('price') ? 
-           'the current price action suggests ' + (coin?.change24h && coin.change24h > 0 ? 
-           'a bullish trend.' : 'a consolidation phase.') : 
-           'this appears to be a promising asset with strong fundamentals.'}`,
-          `Regarding ${query}, ${coinName} shows ${coin?.holders && coin.holders > 1000 ? 
-           'healthy community adoption' : 'early-stage growth potential'}.`,
-          `My technical analysis indicates ${coinName} is currently ${coin?.change24h && coin.change24h > 0 ? 
-           'outperforming the market' : 'experiencing normal market fluctuations'}.`,
-          `For ${query}, consider that ${coinName} has ${coin?.volume24h && coin.volume24h > 100000 ? 
-           'strong liquidity' : 'developing liquidity'} in the market.`
-        ];
-        resolve(responses[Math.floor(Math.random() * responses.length)]);
-      }, 1500);
-    });
   };
 
   useEffect(() => {
@@ -221,12 +244,21 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ coinName, coinAddress, c
         </div>
         <div className="flex items-center space-x-3">
           <button
-            onClick={() => setShowChat(!showChat)}
+            onClick={() => {
+              console.log('🔘 Chat button clicked!', { 
+                showChat, 
+                coinAddress: !!coinAddress, 
+                chatAvailable,
+                useRealAI 
+              });
+              setShowChat(!showChat);
+            }}
             className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               showChat 
                 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' 
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
             }`}
+            title="Toggle chat interface"
           >
             <MessageSquare className="w-4 h-4" />
             <span>{showChat ? 'Hide Chat' : 'Chat with AI'}</span>
@@ -259,9 +291,9 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ coinName, coinAddress, c
                 <div className="animate-pulse bg-gray-200 h-4 w-1/2 rounded"></div>
               </div>
             ) : (
-              <p className="text-sm text-gray-900 leading-relaxed">
-                {analysis}
-              </p>
+              <div className="text-sm text-gray-900 leading-relaxed">
+                {renderMarkdown(analysis)}
+              </div>
             )}
           </div>
           
@@ -308,49 +340,76 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ coinName, coinAddress, c
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="h-64 overflow-y-auto space-y-3">
-            {chatMessages.map(message => (
-              <div 
-                key={message.id} 
-                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-xs md:max-w-md rounded-lg p-3 ${
-                  message.isUser 
-                    ? 'bg-indigo-600 text-white' 
-                    : 'bg-gray-100 text-black'
-                }`}>
-                  <p className="text-sm">{message.content}</p>
-                  <p className="text-xs opacity-70 mt-1">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
+          {!coinAddress ? (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+              <AlertCircle className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
+              <p className="text-sm text-yellow-800">
+                Chat requires a valid coin address to function properly.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="h-64 overflow-y-auto space-y-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                {chatMessages.map(message => (
+                  <div 
+                    key={message.id} 
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-xs md:max-w-md rounded-lg p-3 ${
+                      message.role === 'user'
+                        ? 'bg-indigo-600 text-white' 
+                        : 'bg-white text-black border border-gray-200'
+                    }`}>
+                      <div className="text-sm">
+                        {message.role === 'user' ? (
+                          message.content
+                        ) : (
+                          renderMarkdown(message.content)
+                        )}
+                      </div>
+                      <p className="text-xs opacity-70 mt-1">
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {isSending && (
+                  <div className="flex justify-start">
+                    <div className="bg-white text-black border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-center space-x-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">AI is thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
               </div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Ask about this token..."
-              className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-black placeholder-gray-500"
-              disabled={isSending}
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!userInput.trim() || isSending}
-              className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {isSending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </button>
-          </div>
+              
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Ask about this token..."
+                  className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-black placeholder-gray-500"
+                  disabled={isSending || !coinAddress}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!userInput.trim() || isSending || !coinAddress}
+                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

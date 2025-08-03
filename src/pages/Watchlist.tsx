@@ -381,7 +381,6 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
   };
 
   const handleNavigateToDashboard = () => {
-    // Use the provided navigation callback or fallback to a console log
     if (onNavigateToDashboard) {
       onNavigateToDashboard();
     } else {
@@ -431,7 +430,7 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className=" mx-auto space-y-6">
           <div className="animate-pulse bg-gray-200 h-10 w-64 rounded-lg"></div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map(i => (

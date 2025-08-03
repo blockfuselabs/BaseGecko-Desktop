@@ -1,18 +1,16 @@
 import { apiClient } from '../config/client';
-import { API_ENDPOINTS, buildQueryParams, CoinsQueryParams } from '../config/endpoints';
+import { API_ENDPOINTS, buildQueryParams, CoinsQueryParams, ChatRequest, ChatResponse, ChatMessage } from '../config/endpoints';
 
 interface ApiResponse<T> {
   success: boolean;
   data: T;
 }
 
-
 export interface AISummaryResponse {
   success: boolean;
   summary?: string;
   error?: string;
 }
-
 
 export interface ZoraToken {
   __typename: string;
@@ -119,7 +117,6 @@ const transformZoraTokenToCoin = (token: ZoraToken, index: number): Coin => {
   const volume24hValue = parseFloat(token.volume24h) || 0;
   const totalSupplyValue = parseFloat(token.totalSupply) || 0;
   
-
   const change24h = parseFloat(token.marketCapDelta24h) || (Math.random() - 0.5) * 20;
 
   return {
@@ -279,29 +276,124 @@ class CoinsService {
     }
   }
 
+  // Get AI Summary (existing method)
   async getAISummary(coinAddress: string): Promise<string> {
-  try {
-    console.log('🤖 Fetching AI summary for:', coinAddress);
-    
-    const response = await apiClient.get<AISummaryResponse>(`/coins/summary?coinAddress=${coinAddress}`);
-
-    const summaryResponse = response.success !== undefined ? response : (response as any);
-    
-    if (summaryResponse.success && summaryResponse.summary) {
-      console.log('AI summary received');
-      return summaryResponse.summary;
+    try {
+      console.log('🤖 Fetching AI summary for:', coinAddress);
+      console.log('🔗 Request URL:', `${API_ENDPOINTS.COINS.SUMMARY}?coinAddress=${coinAddress}`);
+      
+      const response = await apiClient.get<AISummaryResponse>(`${API_ENDPOINTS.COINS.SUMMARY}?coinAddress=${coinAddress}`);
+      
+      console.log('📥 Raw API response:', response);
+      
+      // Handle different response formats
+      let summaryData;
+      
+      // If response has a 'data' property (wrapped response)
+      if (response.data) {
+        summaryData = response.data;
+      } else {
+        // Direct response
+        summaryData = response;
+      }
+      
+      console.log('🔍 Summary data:', summaryData);
+      
+      // Check for success and summary in the data
+      if (summaryData && summaryData.success && summaryData.summary) {
+        console.log('✅ AI summary received:', summaryData.summary);
+        return summaryData.summary;
+      }
+      
+      // Check if summary exists directly (without success wrapper)
+      if (summaryData && summaryData.summary) {
+        console.log('✅ AI summary received (direct):', summaryData.summary);
+        return summaryData.summary;
+      }
+      
+      // Check if the response itself is a string (direct summary)
+      if (typeof summaryData === 'string') {
+        console.log('✅ AI summary received (string):', summaryData);
+        return summaryData;
+      }
+      
+      console.error('❌ Invalid response format:', summaryData);
+      throw new Error(summaryData?.error || 'Invalid response format from AI summary endpoint');
+      
+    } catch (error) {
+      console.error('❌ Error fetching AI summary:', error);
+      
+      // If it's a network error, provide more specific message
+      if (error instanceof Error && error.message.includes('HTTP error')) {
+        throw new Error(`API request failed: ${error.message}`);
+      }
+      
+      throw error;
     }
-    
-    throw new Error(summaryResponse.error || 'Failed to get AI summary');
-  } catch (error) {
-    console.error('Error fetching AI summary:', error);
-    throw error;
+  }
+
+  // NEW: Chat with AI
+  async chatWithAI(
+    coinAddress: string, 
+    userQuestion: string, 
+    conversationHistory: ChatMessage[] = []
+  ): Promise<string> {
+    try {
+      console.log('💬 Sending chat message for:', coinAddress);
+      console.log('📝 User Question:', userQuestion);
+      console.log('📚 Conversation history length:', conversationHistory.length);
+      
+      const chatRequest: ChatRequest = {
+        coinAddress,
+        userQuestion,
+        conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined
+      };
+      
+      console.log('🚀 Chat request payload:', chatRequest);
+      
+      // The apiClient.post returns an ApiResponse that might wrap the ChatResponse
+      const response = await apiClient.post<ChatResponse>(API_ENDPOINTS.COINS.CHAT, chatRequest);
+      
+      console.log('📥 Raw chat response:', response);
+      
+      // Handle the response format - your API returns: { success: true, data: "response text" }
+      
+      // Case 1: Direct response format { success: true, data: "text" }
+      if (response.success && typeof response.data === 'string') {
+        console.log('✅ AI chat response received (direct):', response.data);
+        return response.data;
+      }
+      
+      // Case 2: Response wrapped in ApiResponse format { data: { success: true, data: "text" } }
+      const responseData = (response as any).data;
+      if (responseData && responseData.success && typeof responseData.data === 'string') {
+        console.log('✅ AI chat response received (wrapped):', responseData.data);
+        return responseData.data;
+      }
+      
+      // Case 3: Check if the whole response is the data string
+      if (typeof response === 'string') {
+        console.log('✅ AI chat response received (string):', response);
+        return response;
+      }
+      
+      // Case 4: Check for error in response
+      const errorMessage = response.error || (responseData && responseData.error) || 'Invalid response format from AI chat endpoint';
+      console.error('❌ Invalid chat response format:', response);
+      throw new Error(errorMessage);
+      
+    } catch (error) {
+      console.error('❌ Error in AI chat:', error);
+      
+      // If it's a network error, provide more specific message
+      if (error instanceof Error && error.message.includes('HTTP error')) {
+        throw new Error(`Chat API request failed: ${error.message}`);
+      }
+      
+      throw error;
+    }
   }
 }
-}
-
 
 export const coinsService = new CoinsService();
-
-
 export { CoinsService };

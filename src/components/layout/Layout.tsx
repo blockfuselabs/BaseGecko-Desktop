@@ -17,7 +17,7 @@ const Header = ({ onSearchChange, searchQuery, activeTab, onTabChange }) => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-[#272757]">Basegecko</h1>
-              <p className="text-xs text-gray-500 hidden md:block">Coined Post Market Intelligence</p>
+              <p className="text-xs text-gray-500 hidden md:block">Coined Post Market Tracker</p>
             </div>
           </div>
 
@@ -27,7 +27,7 @@ const Header = ({ onSearchChange, searchQuery, activeTab, onTabChange }) => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search coins, symbols, or addresses..."
+                placeholder="Search post or addresses..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -169,7 +169,7 @@ const Footer = () => (
           </div>
           <div>
             <h3 className="text-lg font-bold text-gray-900">Basegecko</h3>
-            <p className="text-sm text-gray-500">Coined Post Market Intelligence</p>
+            <p className="text-sm text-gray-500">Coined Post Market Tracker</p>
           </div>
         </div>
 
