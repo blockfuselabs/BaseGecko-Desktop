@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Search, Bell, Settings, Menu, X, TrendingUp, Home, BarChart3, Heart, Briefcase, Flame, Twitter, Github, Mail, ExternalLink, Shield, Zap, MessageCircle } from 'lucide-react';
+import Logo from "../../assets/images/BaseGecko-logo.svg"
+import { Link } from 'react-router-dom';
+
 
 // Modern Header Component
 const Header = ({ onSearchChange, searchQuery, activeTab, onTabChange }) => {
@@ -11,15 +14,18 @@ const Header = ({ onSearchChange, searchQuery, activeTab, onTabChange }) => {
       <div className="px-4 md:px-6 py-3">
         <div className="flex items-center mx-16 justify-between">
           {/* Logo & Brand */}
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-[#272757] to-indigo-600 rounded-lg flex items-center justify-center shadow-md">
-              <TrendingUp className="w-5 h-5 text-white" />
+         
+          
+            <div className="flex -mx-10 -my-16 gap-2 md:gap-2 items-center -space-x-12">
+              <img src={Logo} alt="Base Gecko Logo" className="w-12 md:w-16 lg:w-40" />
+              <div className="text-primary-100">
+               <h1 className="text-xl font-bold text-[#272757]">BaseGecko</h1>
+                <p className="text-xs text-gray-500 hidden md:block">Coined Post Market Tracker</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-[#272757]">Basegecko</h1>
-              <p className="text-xs text-gray-500 hidden md:block">Coined Post Market Tracker</p>
-            </div>
-          </div>
+       
+       
+          
 
           {/* Desktop Search Bar */}
           <div className="hidden md:flex flex-1 max-w-2xl mx-6">
@@ -155,7 +161,7 @@ const MobileNavigation = ({ activeTab, onTabChange }) => {
   );
 };
 
-// Minimalistic Modern Footer Component
+// Minimalistic Modern Footer Component  
 const Footer = () => (
   <footer className="bg-white border-t border-gray-100 mt-16">
     <div className="mx-16 px-4 md:px-6 py-8">
@@ -163,15 +169,13 @@ const Footer = () => (
       <div className="flex flex-col lg:flex-row justify-between items-center space-y-6 lg:space-y-0">
         
         {/* Brand Section */}
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-[#272757] to-indigo-600 rounded-lg flex items-center justify-center">
-            <TrendingUp className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">Basegecko</h3>
-            <p className="text-sm text-gray-500">Coined Post Market Tracker</p>
-          </div>
-        </div>
+          <div className="flex -mx-10 -my-16 gap-2 md:gap-2 items-center -space-x-12">
+              <img src={Logo} alt="Base Gecko Logo" className="w-12 md:w-16 lg:w-40" />
+              <div className="text-primary-100">
+               <h1 className="text-xl font-bold text-[#272757]">BaseGecko</h1>
+                <p className="text-xs text-gray-500 hidden md:block">Coined Post Market Tracker</p>
+              </div>
+            </div>
 
         {/* Navigation Links */}
         <div className="flex flex-wrap justify-center lg:justify-end items-center gap-6 text-sm">
@@ -201,7 +205,7 @@ const Footer = () => (
       <div className="mt-8 pt-6 border-t border-gray-100">
         <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
           <div className="text-sm text-gray-500">
-            © {new Date().getFullYear()} Basegecko. All rights reserved.
+            © {new Date().getFullYear()} BaseGecko. All rights reserved.
           </div>
           <div className="text-sm text-gray-400">
             Real-time market data • Powered by Web3
