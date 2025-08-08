@@ -1,9 +1,11 @@
+// App.tsx
 import React, { useState } from 'react';
 import { Layout } from './components/layout/Layout';
-import { Dashboard } from './pages/Dashboard'; // Changed to named import
+import { Dashboard } from './pages/Dashboard';
 import { CoinDetail } from './pages/CoinDetail';
 import { Watchlist } from './pages/Watchlist';
 import { Settings } from './pages/Settings';
+import { Coin } from './services/coinService';
 import './styles/globals.css';
 
 type Page = 'dashboard' | 'trending' | 'watchlist' | 'portfolio' | 'analytics' | 'settings' | 'coin-detail';
@@ -30,6 +32,36 @@ function App() {
     setCurrentPage('coin-detail');
   };
 
+  // Handle coin selection from search
+  const handleCoinSelectFromSearch = (coin: Coin) => {
+    console.log('🔍 Search selected coin:', coin);
+    
+    const coinData = {
+      coinId: coin.id,
+      coinImage: coin.image,
+      coinData: coin,
+      id: coin.id,
+      image: coin.image,
+      name: coin.name,
+      symbol: coin.symbol,
+      address: coin.address,
+      price: coin.price,
+      change24h: coin.change24h,
+      volume24h: coin.volume24h,
+      marketCap: coin.marketCap,
+      holders: coin.holders,
+      totalSupply: coin.totalSupply,
+      createdAt: coin.createdAt,
+      rank: coin.rank,
+      description: coin.description,
+      creatorAddress: coin.creatorAddress,
+      chainId: coin.chainId,
+      isFromBaseApp: coin.isFromBaseApp
+    };
+    
+    handleViewCoinDetail(coinData);
+  };
+
   const handleBackToDashboard = () => {
     setCurrentPage('dashboard');
     setSelectedCoin(null);
@@ -50,10 +82,10 @@ function App() {
           <div className="space-y-6 md:space-y-8">
             <div>
               <h1 className="text-2xl md:text-4xl font-bold text-[#222928] mb-2">
-                Trending Cryptocurrencies
+                Trending Coined Posts
               </h1>
               <p className="text-gray-600">
-                The most popular cryptocurrencies by search volume in the last 24 hours
+                The most popular coined posts by search volume in the last 24 hours
               </p>
             </div>
             
@@ -133,7 +165,7 @@ function App() {
                 Market Analytics
               </h1>
               <p className="text-gray-600">
-                Deep insights and analysis of the cryptocurrency market
+                Deep insights and analysis of the coined post market
               </p>
             </div>
             
@@ -161,7 +193,7 @@ function App() {
               
               <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
                 <h3 className="text-base md:text-lg font-semibold text-[#222928] mb-4">
-                  Fear & Greed Index
+                  Creator Activity Index
                 </h3>
                 <div className="animate-pulse bg-gray-200 h-48 md:h-64 rounded"></div>
               </div>
@@ -200,6 +232,7 @@ function App() {
     <Layout 
       activeTab={currentPage} 
       onTabChange={handleTabChange}
+      onCoinSelect={handleCoinSelectFromSearch}
     >
       <div className="p-4 md:p-0">
         {renderCurrentPage()}

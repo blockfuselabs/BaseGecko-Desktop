@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, TrendingUp, TrendingDown, Eye, AlertCircle, RefreshCw, Trash2, Bell, Search, Plus } from 'lucide-react';
+import { Star, TrendingUp, TrendingDown, Eye, AlertCircle, RefreshCw, Trash2, Bell, Search, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { coinsService, Coin } from '../services/coinService';
 import { CoinAvatar } from '../components/common/CoinAvatar';
 
@@ -107,6 +107,131 @@ class WatchlistStorage {
     await this.saveWatchlist([]);
   }
 }
+
+// Pagination Component
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+}
+
+const Pagination: React.FC<PaginationProps> = ({
+  currentPage,
+  totalPages,
+  totalItems,
+  itemsPerPage,
+  onPageChange,
+}) => {
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total is less than or equal to max visible
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Complex pagination logic for many pages
+      if (currentPage <= 3) {
+        // Show first pages + ellipsis + last page
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        if (totalPages > 5) {
+          pages.push('...');
+          pages.push(totalPages);
+        }
+      } else if (currentPage >= totalPages - 2) {
+        // Show first page + ellipsis + last pages
+        pages.push(1);
+        if (totalPages > 5) {
+          pages.push('...');
+        }
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        // Show first page + ellipsis + current area + ellipsis + last page
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
+      <div className="text-sm text-gray-700">
+        Showing <span className="font-medium">{startItem}</span> to{' '}
+        <span className="font-medium">{endItem}</span> of{' '}
+        <span className="font-medium">{totalItems}</span> coins
+      </div>
+
+      <div className="flex items-center space-x-2">
+        {/* Previous Button */}
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4 mr-1" />
+          Previous
+        </button>
+
+        {/* Page Numbers */}
+        <div className="hidden sm:flex items-center space-x-1">
+          {getPageNumbers().map((page, index) => (
+            <React.Fragment key={index}>
+              {page === '...' ? (
+                <span className="px-3 py-2 text-sm text-gray-500">...</span>
+              ) : (
+                <button
+                  onClick={() => onPageChange(page as number)}
+                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    currentPage === page
+                      ? 'bg-indigo-600 text-white border border-indigo-600'
+                      : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+
+        {/* Mobile Page Info */}
+        <div className="sm:hidden px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg">
+          {currentPage} of {totalPages}
+        </div>
+
+        {/* Next Button */}
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+        >
+          Next
+          <ChevronRight className="w-4 h-4 ml-1" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 interface WatchlistCoinCardProps {
   coin: Coin;
@@ -235,6 +360,10 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
   const [sortBy, setSortBy] = useState<'added' | 'price' | 'change' | 'volume' | 'name'>('added');
   const [filterBy, setFilterBy] = useState<'all' | 'gainers' | 'losers'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const loadWatchlistData = async () => {
     try {
@@ -348,6 +477,28 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
       if (success) {
         setWatchlistItems(prev => prev.filter(item => item.coinId !== coinId));
         setCoins(prev => prev.filter(coin => coin.id !== coinId));
+        
+        // Reset to first page if current page becomes empty after removal
+        const remainingCoins = coins.filter(coin => coin.id !== coinId);
+        const filteredRemaining = remainingCoins.filter(coin => {
+          if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            if (!(coin.name.toLowerCase().includes(query) || coin.symbol.toLowerCase().includes(query))) {
+              return false;
+            }
+          }
+          
+          if (filterBy === 'gainers') return coin.change24h > 0;
+          if (filterBy === 'losers') return coin.change24h < 0;
+          return true;
+        });
+        
+        const totalPages = Math.ceil(filteredRemaining.length / itemsPerPage);
+        if (currentPage > totalPages && totalPages > 0) {
+          setCurrentPage(totalPages);
+        } else if (filteredRemaining.length === 0) {
+          setCurrentPage(1);
+        }
       }
     } catch (error) {
       console.error('Failed to remove from watchlist:', error);
@@ -375,6 +526,7 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
       await WatchlistStorage.clearWatchlist();
       setWatchlistItems([]);
       setCoins([]);
+      setCurrentPage(1);
     } catch (error) {
       console.error('Failed to clear watchlist:', error);
     }
@@ -388,6 +540,7 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
     }
   };
 
+  // Filter and sort coins
   const filteredAndSortedCoins = coins
     .filter(coin => {
       if (searchQuery) {
@@ -420,6 +573,24 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
       }
     });
 
+  // Pagination calculations
+  const totalItems = filteredAndSortedCoins.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCoins = filteredAndSortedCoins.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterBy, sortBy, searchQuery]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of the coin grid when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const stats = {
     total: coins.length,
     gainers: coins.filter(coin => coin.change24h > 0).length,
@@ -438,7 +609,7 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
             ))}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {[1, 2, 3, 4, 5, 6].map(i => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
               <div key={i} className="bg-gray-200 h-64 rounded-xl"></div>
             ))}
           </div>
@@ -602,77 +773,81 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
           </div>
         )}
 
-        {filteredAndSortedCoins.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filteredAndSortedCoins.map((coin) => {
-              const watchlistItem = watchlistItems.find(item => {
-                // Try multiple ways to match the coin with watchlist item
-                const itemIdLower = item.coinId.toLowerCase();
-                const coinIdLower = coin.id.toLowerCase();
-                const coinAddressLower = coin.address?.toLowerCase();
-                
-                // Method 1: Direct ID match
-                if (item.coinId === coin.id) return true;
-                
-                // Method 2: Address match
-                if (coinAddressLower && itemIdLower === coinAddressLower) return true;
-                
-                // Method 3: Extract address from base64 coin ID
-                try {
-                  if (coin.id.includes('=') && coin.id.length > 20) {
-                    const decoded = atob(coin.id);
-                    const addressMatch = decoded.match(/0x[a-fA-F0-9]{40}/);
-                    if (addressMatch && addressMatch[0].toLowerCase() === itemIdLower) return true;
+        {paginatedCoins.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-6">
+              {paginatedCoins.map((coin) => {
+                const watchlistItem = watchlistItems.find(item => {
+                  // Try multiple ways to match the coin with watchlist item
+                  const itemIdLower = item.coinId.toLowerCase();
+                  const coinIdLower = coin.id.toLowerCase();
+                  const coinAddressLower = coin.address?.toLowerCase();
+                  
+                  // Method 1: Direct ID match
+                  if (item.coinId === coin.id) return true;
+                  
+                  // Method 2: Address match
+                  if (coinAddressLower && itemIdLower === coinAddressLower) return true;
+                  
+                  // Method 3: Extract address from base64 coin ID
+                  try {
+                    if (coin.id.includes('=') && coin.id.length > 20) {
+                      const decoded = atob(coin.id);
+                      const addressMatch = decoded.match(/0x[a-fA-F0-9]{40}/);
+                      if (addressMatch && addressMatch[0].toLowerCase() === itemIdLower) return true;
+                    }
+                  } catch (e) {
+                    // Ignore decode errors
                   }
-                } catch (e) {
-                  // Ignore decode errors
-                }
-                
-                // Method 4: Extract address from base64 watchlist item
-                try {
-                  if (item.coinId.includes('=') && item.coinId.length > 20) {
-                    const decoded = atob(item.coinId);
-                    const addressMatch = decoded.match(/0x[a-fA-F0-9]{40}/);
-                    if (addressMatch && coinAddressLower && addressMatch[0].toLowerCase() === coinAddressLower) return true;
+                  
+                  // Method 4: Extract address from base64 watchlist item
+                  try {
+                    if (item.coinId.includes('=') && item.coinId.length > 20) {
+                      const decoded = atob(item.coinId);
+                      const addressMatch = decoded.match(/0x[a-fA-F0-9]{40}/);
+                      if (addressMatch && coinAddressLower && addressMatch[0].toLowerCase() === coinAddressLower) return true;
+                    }
+                  } catch (e) {
+                    // Ignore decode errors
                   }
-                } catch (e) {
-                  // Ignore decode errors
-                }
-                
-                return false;
-              });
-              
-              if (!watchlistItem) {
-                console.log('⚠️ No watchlist item found for coin:', {
-                  coinId: coin.id,
-                  coinName: coin.name,
-                  coinAddress: coin.address,
-                  watchlistItems: watchlistItems.map(item => ({
-                    coinId: item.coinId,
-                    addedAt: item.addedAt
-                  }))
+                  
+                  return false;
                 });
-                return null;
-              }
-              
-              console.log('✅ Rendering coin card:', {
-                coinName: coin.name,
-                coinId: coin.id,
-                coinAddress: coin.address,
-                watchlistItemId: watchlistItem.coinId
-              });
-              
-              return (
-                <WatchlistCoinCard
-                  key={`${coin.id}-${watchlistItem.coinId}`}
-                  coin={coin}
-                  watchlistItem={watchlistItem}
-                  onViewDetails={handleViewDetails}
-                  onRemove={handleRemoveFromWatchlist}
-                />
-              );
-            })}
-          </div>
+                
+                if (!watchlistItem) {
+                  console.log('⚠️ No watchlist item found for coin:', {
+                    coinId: coin.id,
+                    coinName: coin.name,
+                    coinAddress: coin.address,
+                    watchlistItems: watchlistItems.map(item => ({
+                      coinId: item.coinId,
+                      addedAt: item.addedAt
+                    }))
+                  });
+                  return null;
+                }
+                
+                return (
+                  <WatchlistCoinCard
+                    key={`${coin.id}-${watchlistItem.coinId}`}
+                    coin={coin}
+                    watchlistItem={watchlistItem}
+                    onViewDetails={handleViewDetails}
+                    onRemove={handleRemoveFromWatchlist}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Pagination Component */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={handlePageChange}
+            />
+          </>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
             <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -722,7 +897,7 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onViewCoinDetail, onNaviga
         )}
 
         {watchlistItems.length > 0 && (
-          <div className="mt-6 flex justify-end">
+          <div className="mt-8 flex justify-end">
             <button
               onClick={handleClearWatchlist}
               className="text-red-600 hover:text-red-800 text-sm px-4 py-2 rounded-lg border border-red-200 hover:bg-red-50 transition-colors inline-flex items-center gap-2"
